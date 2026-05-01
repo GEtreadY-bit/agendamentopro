@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agendamento | Salão Liquid</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      :root {
+        --bg-dark: #0f172a;
+        --bg-dark-soft: #111827;
+        --glass-white: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(255, 255, 255, 0.2);
+        --neon-blue: #60a5fa;
+        --neon-blue-soft: rgba(96, 165, 250, 0.4);
+      }
+
+      body {
+        background:
+          radial-gradient(circle at 10% 20%, rgba(96, 165, 250, 0.2), transparent 35%),
+          radial-gradient(circle at 90% 80%, rgba(148, 163, 184, 0.15), transparent 30%),
+          linear-gradient(145deg, var(--bg-dark), var(--bg-dark-soft));
+      }
+
+      .glass-card {
+        background: var(--glass-white);
+        border: 1px solid var(--glass-border);
+        box-shadow:
+          0 10px 40px rgba(15, 23, 42, 0.5),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+      }
+
+      .time-slot.active {
+        border-color: var(--neon-blue);
+        box-shadow: 0 0 0 2px var(--neon-blue-soft);
+        color: #dbeafe;
+      }
+
+      /* Fix dropdown options styling */
+      select option {
+        background-color: #1e293b;
+        color: #f1f5f9;
+      }
+
+      .admin-panel {
+        display: none;
+      }
+      .admin-panel.active {
+        display: block;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen text-slate-100 antialiased">
+    <header class="max-w-6xl mx-auto px-6 pt-10 pb-8">
+      <div class="glass-card rounded-3xl p-8 md:p-12 relative overflow-hidden">
+        <div class="absolute -top-12 -right-12 w-40 h-40 bg-blue-400/20 blur-3xl rounded-full"></div>
+        <div class="flex justify-between items-start relative z-10">
+          <div>
+            <p class="uppercase tracking-[0.35em] text-xs text-blue-200/80">Bem-vindo</p>
+            <h1 class="mt-4 text-4xl md:text-5xl font-bold leading-tight">Barbearia Liquid Glass</h1>
+          </div>
+          <a
+            id="adminToggle"
+            class="glass-card p-3 rounded-xl hover:bg-white/20 transition-all text-xs uppercase tracking-widest"
+            href="admin.html"
+          >
+            Admin
+          </a>
+        </div>
+        <p class="mt-4 text-slate-300 max-w-2xl relative z-10">
+          Agende seu horário em segundos com um sistema simples, moderno e sem complicações.
+        </p>
+        <a
+          href="#booking"
+          class="inline-block mt-8 px-6 py-3 rounded-xl bg-blue-400/80 hover:bg-blue-300 text-slate-950 font-semibold transition relative z-10"
+        >
+          Agendar Agora
+        </a>
+      </div>
+    </header>
+
+    <main id="booking" class="max-w-6xl mx-auto px-6 pb-14">
+      <section id="userSection" class="glass-card rounded-3xl p-6 md:p-8">
+        <div class="grid lg:grid-cols-2 gap-8">
+          <div>
+            <h2 class="text-2xl font-semibold">Novo Agendamento</h2>
+            <p class="text-slate-300 mt-2">Escolha serviço, dia e horário disponível.</p>
+
+            <div class="mt-6">
+              <label for="service" class="text-sm text-slate-300">Serviço</label>
+              <select
+                id="service"
+                class="mt-2 w-full rounded-xl bg-white/10 border border-white/20 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-300 transition-all cursor-pointer"
+              >
+                <option value="Corte">Corte Masculino</option>
+                <option value="Barba">Barba / Terapia</option>
+                <option value="Completo">Corte & Barba</option>
+                <option value="Sobrancelha">Sobrancelha</option>
+                <option value="Pezinho">Pezinho (Acabamento)</option>
+                <option value="Luzes">Luzes / Mechas</option>
+                <option value="Hidratação">Hidratação Capilar</option>
+                <option value="Pintura">Pintura de Barba/Cabelo</option>
+              </select>
+            </div>
+
+            <div class="mt-6">
+              <label for="appointmentDate" class="text-sm text-slate-300">Dia</label>
+              <input
+                id="appointmentDate"
+                type="date"
+                class="mt-2 w-full rounded-xl bg-white/10 border border-white/20 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            </div>
+
+            <div class="mt-6">
+              <p class="text-sm text-slate-300 mb-3">Horários Disponíveis</p>
+              <div id="timeSlots" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="text-xl font-semibold">Seus Dados</h3>
+            <form id="bookingForm" class="mt-4 space-y-4">
+              <div>
+                <label for="clientName" class="text-sm text-slate-300">Nome</label>
+                <input
+                  id="clientName"
+                  type="text"
+                  required
+                  class="mt-2 w-full rounded-xl bg-white/10 border border-white/20 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-300"
+                  placeholder="Ex: João Silva"
+                />
+              </div>
+
+              <div>
+                <label for="clientPhone" class="text-sm text-slate-300">Telefone</label>
+                <input
+                  id="clientPhone"
+                  type="tel"
+                  required
+                  class="mt-2 w-full rounded-xl bg-white/10 border border-white/20 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-300"
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+
+              <button
+                type="submit"
+                id="submitBtn"
+                class="w-full mt-2 rounded-xl bg-blue-400/85 hover:bg-blue-300 text-slate-950 py-3 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Confirmar Agendamento
+              </button>
+            </form>
+
+            <div
+              id="feedback"
+              class="hidden mt-4 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm"
+              role="alert"
+            ></div>
+          </div>
+        </div>
+      </section>
+
+
+
+    <script>
+      // ===== 1) Configure aqui os dados do seu Supabase =====
+      const SUPABASE_URL = "https://wtiggukuwfgnmrqaedzw.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0aWdndWt1d2Znbm1ycWFlZHp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDM3NTQsImV4cCI6MjA5MzIxOTc1NH0.EIuFyGu2iM5EeGv7XqdWIX60_58oqbO01W0JwxPfFVY";
+
+      // ===== 2) Cliente Supabase =====
+      let dbClient = null;
+      if (SUPABASE_URL.startsWith("http") && SUPABASE_ANON_KEY.length > 20) {
+        dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      } else {
+        console.warn("Configure as credenciais do Supabase para salvar agendamentos.");
+      }
+
+      const timeSlotsContainer = document.getElementById("timeSlots");
+      const appointmentDate = document.getElementById("appointmentDate");
+      const bookingForm = document.getElementById("bookingForm");
+      const feedback = document.getElementById("feedback");
+      const submitBtn = document.getElementById("submitBtn");
+
+
+
+      const availableTimes = [
+        "09:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "14:00",
+        "15:00",
+        "16:00",
+        "17:00",
+        "18:00"
+      ];
+
+      let selectedTime = null;
+      let occupiedTimes = [];
+
+      const now = new Date();
+      const minDate = now.toISOString().split("T")[0];
+      appointmentDate.min = minDate;
+      appointmentDate.value = minDate;
+
+      function showFeedback(message, type = "info") {
+        feedback.classList.remove("hidden", "border-red-300/40", "border-green-300/40", "text-red-100", "text-green-100");
+        if (type === "error") {
+          feedback.classList.add("border-red-300/40", "text-red-100");
+        } else if (type === "success") {
+          feedback.classList.add("border-green-300/40", "text-green-100");
+        }
+        feedback.textContent = message;
+      }
+
+      function resetFeedback() {
+        feedback.classList.add("hidden");
+        feedback.textContent = "";
+      }
+
+      function renderTimeSlots() {
+        timeSlotsContainer.innerHTML = "";
+
+        availableTimes.forEach((time) => {
+          const isOccupied = occupiedTimes.includes(time);
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = time;
+          button.disabled = isOccupied;
+          button.className = [
+            "time-slot rounded-xl border px-3 py-2 text-sm transition",
+            isOccupied
+              ? "border-white/10 bg-white/5 text-slate-500 cursor-not-allowed"
+              : "border-white/20 bg-white/10 hover:border-blue-300"
+          ].join(" ");
+
+          if (selectedTime === time && !isOccupied) {
+            button.classList.add("active");
+          }
+
+          if (!isOccupied) {
+            button.addEventListener("click", () => {
+              selectedTime = time;
+              renderTimeSlots();
+              resetFeedback();
+            });
+          }
+
+          timeSlotsContainer.appendChild(button);
+        });
+      }
+
+      async function getOccupiedTimesByDate(date) {
+        if (!dbClient) {
+          return [];
+        }
+
+        const { data, error } = await dbClient
+          .from("appointments")
+          .select("appointment_time")
+          .eq("appointment_date", date)
+          .neq("status", "cancelled");
+
+        if (error) {
+          console.error(error);
+          showFeedback("Nao foi possivel carregar horarios ocupados.", "error");
+          return [];
+        }
+
+        return data.map((item) => item.appointment_time?.slice(0, 5)).filter(Boolean);
+      }
+
+      // Verifica no banco se o horario escolhido ainda esta livre
+      async function isSlotAvailable(date, time) {
+        if (!dbClient) {
+          return false;
+        }
+
+        const { data, error } = await dbClient
+          .from("appointments")
+          .select("id")
+          .eq("appointment_date", date)
+          .eq("appointment_time", `${time}:00`)
+          .neq("status", "cancelled")
+          .limit(1);
+
+        if (error) {
+          console.error(error);
+          throw new Error("Erro ao validar disponibilidade.");
+        }
+
+        return data.length === 0;
+      }
+
+      // Salva o agendamento na tabela appointments
+      async function saveAppointment(payload) {
+        const { error } = await dbClient.from("appointments").insert([payload]);
+        if (error) {
+          console.error(error);
+          throw new Error("Erro ao salvar agendamento.");
+        }
+      }
+
+      async function reloadDayAvailability() {
+        selectedTime = null;
+        occupiedTimes = await getOccupiedTimesByDate(appointmentDate.value);
+        renderTimeSlots();
+      }
+
+      appointmentDate.addEventListener("change", async () => {
+        resetFeedback();
+        await reloadDayAvailability();
+      });
+
+      bookingForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        resetFeedback();
+
+        const clientName = document.getElementById("clientName").value.trim();
+        const clientPhone = document.getElementById("clientPhone").value.trim();
+        const serviceType = document.getElementById("service").value;
+        const date = appointmentDate.value;
+
+        if (!dbClient) {
+          showFeedback("Configure as credenciais do Supabase antes de agendar.", "error");
+          return;
+        }
+
+        if (!clientName || !clientPhone || !date || !selectedTime) {
+          showFeedback("Preencha todos os campos e selecione um horario.", "error");
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Confirmando...";
+
+        try {
+          const available = await isSlotAvailable(date, selectedTime);
+          if (!available) {
+            showFeedback("Este horario acabou de ser ocupado. Escolha outro.", "error");
+            await reloadDayAvailability();
+            return;
+          }
+
+          await saveAppointment({
+            client_name: clientName,
+            client_phone: clientPhone,
+            service_type: serviceType,
+            appointment_date: date,
+            appointment_time: `${selectedTime}:00`,
+            status: "scheduled"
+          });
+
+          showFeedback("Agendamento confirmado com sucesso!", "success");
+          bookingForm.reset();
+          appointmentDate.value = date;
+          await reloadDayAvailability();
+        } catch (err) {
+          showFeedback(err.message || "Falha ao concluir agendamento.", "error");
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Confirmar Agendamento";
+        }
+      });
+
+      renderTimeSlots();
+      reloadDayAvailability();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Painel Admin | Salão Liquid</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      :root {
+        --bg-dark: #0f172a;
+        --bg-dark-soft: #111827;
+        --glass-white: rgba(255, 255, 255, 0.05);
+        --glass-border: rgba(255, 255, 255, 0.1);
+      }
+
+      body {
+        background: var(--bg-dark);
+        color: #f8fafc;
+        font-family: 'Inter', sans-serif;
+      }
+
+      /* Animated Background for login */
+      .login-bg {
+        background: radial-gradient(circle at 50% 50%, rgba(96, 165, 250, 0.15), transparent 50%),
+                    var(--bg-dark);
+      }
+
+      .glass-panel {
+        background: var(--glass-white);
+        border: 1px solid var(--glass-border);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+      }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen antialiased flex flex-col">
+
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center login-bg transition-opacity duration-500">
+      <div class="glass-panel p-8 md:p-10 rounded-3xl w-full max-w-md mx-4 relative overflow-hidden shadow-2xl shadow-blue-900/20">
+        <div class="absolute -top-20 -right-20 w-40 h-40 bg-blue-500/20 blur-3xl rounded-full pointer-events-none"></div>
+        <div class="text-center mb-8 relative z-10">
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 mb-4 border border-blue-500/20">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold tracking-tight">Acesso Restrito</h1>
+          <p class="text-slate-400 text-sm mt-2">Painel de gestão da Barbearia</p>
+        </div>
+
+        <form id="loginForm" class="space-y-5 relative z-10">
+          <div>
+            <label class="block text-sm text-slate-400 mb-1.5">Código de Acesso</label>
+            <input type="password" id="pinCode" placeholder="••••" required
+              class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-center tracking-[1em] text-lg font-mono">
+          </div>
+          <button type="submit" class="w-full bg-blue-500 hover:bg-blue-400 text-slate-900 font-semibold py-3 rounded-xl transition-colors shadow-lg shadow-blue-500/25">
+            Entrar
+          </button>
+          <p id="loginError" class="text-red-400 text-sm text-center hidden">Código incorreto.</p>
+        </form>
+      </div>
+    </div>
+
+    <!-- DASHBOARD (Hidden initially) -->
+    <div id="dashboard" class="hidden flex-1 flex flex-col h-screen overflow-hidden">
+      <!-- Navbar -->
+      <nav class="glass-panel border-b-0 border-x-0 border-t-0 border-white/5 px-6 py-4 flex justify-between items-center z-10 sticky top-0">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+            <span class="text-blue-400 font-bold text-sm">L</span>
+          </div>
+          <span class="font-semibold tracking-wide text-slate-200">Liquid <span class="text-slate-500">Admin</span></span>
+        </div>
+        <div class="flex items-center gap-4">
+          <a href="index.html" class="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2">
+             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+             Ver Site
+          </a>
+          <button id="logoutBtn" class="text-sm bg-white/5 hover:bg-red-500/20 hover:text-red-300 text-slate-300 px-4 py-1.5 rounded-lg border border-white/10 transition-colors">
+            Sair
+          </button>
+        </div>
+      </nav>
+
+      <!-- Main Content -->
+      <main class="flex-1 overflow-y-auto p-6 lg:p-10 relative">
+        <!-- Background Effects -->
+        <div class="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/5 blur-[120px] rounded-full pointer-events-none"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-600/5 blur-[120px] rounded-full pointer-events-none"></div>
+
+        <div class="max-w-7xl mx-auto relative z-10">
+          <header class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <h2 class="text-3xl font-bold text-white">Dashboard</h2>
+              <p class="text-slate-400 mt-1">Visão geral dos teus agendamentos.</p>
+            </div>
+            <button onclick="loadAppointments()" class="flex items-center gap-2 text-sm bg-blue-500/10 text-blue-400 px-4 py-2 rounded-xl border border-blue-500/20 hover:bg-blue-500/20 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              Atualizar
+            </button>
+          </header>
+
+          <!-- Stats Row -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <!-- Stat Card 1 -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group">
+              <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl group-hover:bg-blue-500/30 transition-colors"></div>
+              <div class="flex justify-between items-start mb-4">
+                <p class="text-slate-400 font-medium">Agendamentos Hoje</p>
+                <div class="p-2 bg-blue-500/10 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
+              </div>
+              <h3 class="text-4xl font-bold text-white" id="statToday">0</h3>
+            </div>
+            
+            <!-- Stat Card 2 -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group">
+              <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/20 rounded-full blur-2xl group-hover:bg-emerald-500/30 transition-colors"></div>
+              <div class="flex justify-between items-start mb-4">
+                <p class="text-slate-400 font-medium">Total Ativos (Futuros)</p>
+                <div class="p-2 bg-emerald-500/10 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
+              </div>
+              <h3 class="text-4xl font-bold text-white" id="statTotal">0</h3>
+            </div>
+
+            <!-- Stat Card 3 -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group">
+              <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-rose-500/20 rounded-full blur-2xl group-hover:bg-rose-500/30 transition-colors"></div>
+              <div class="flex justify-between items-start mb-4">
+                <p class="text-slate-400 font-medium">Cancelados</p>
+                <div class="p-2 bg-rose-500/10 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
+              </div>
+              <h3 class="text-4xl font-bold text-white" id="statCancelled">0</h3>
+            </div>
+          </div>
+
+          <!-- Appointments Table -->
+          <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
+            <div class="p-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+              <h3 class="font-semibold text-lg">Lista de Agendamentos</h3>
+              
+              <!-- Filter Select -->
+              <select id="filterStatus" class="bg-white/5 border border-white/10 text-sm rounded-lg px-3 py-1.5 outline-none text-slate-300 focus:ring-2 focus:ring-blue-500/50">
+                <option value="all">Todos</option>
+                <option value="scheduled" selected>Apenas Confirmados</option>
+                <option value="cancelled">Cancelados</option>
+              </select>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-white/[0.02] text-slate-400 text-[11px] uppercase tracking-widest border-b border-white/10">
+                    <th class="py-4 px-6 font-semibold">Data e Hora</th>
+                    <th class="py-4 px-6 font-semibold">Cliente</th>
+                    <th class="py-4 px-6 font-semibold">Serviço</th>
+                    <th class="py-4 px-6 font-semibold">Status</th>
+                    <th class="py-4 px-6 font-semibold text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="adminTableBody" class="divide-y divide-white/5">
+                  <tr>
+                    <td colspan="5" class="py-12 text-center text-slate-500">
+                      <div class="animate-spin inline-block w-6 h-6 border-[3px] border-current border-t-transparent rounded-full text-blue-500" role="status" aria-label="loading"></div>
+                      <p class="mt-2 text-sm">Carregando dados...</p>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Custom Modal -->
+      <div id="customModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity opacity-0">
+        <div class="bg-[#1e293b] border border-white/10 p-6 rounded-2xl shadow-2xl max-w-sm w-full mx-4 transform scale-95 transition-transform duration-200" id="customModalContent">
+          <h3 id="modalTitle" class="text-xl font-bold text-white mb-2">Aviso</h3>
+          <p id="modalMessage" class="text-slate-300 text-sm mb-6">Mensagem</p>
+          <div class="flex justify-end gap-3">
+            <button id="modalCancelBtn" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/5 border border-transparent transition-colors hidden">Não</button>
+            <button id="modalConfirmBtn" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 hover:bg-blue-400 text-slate-900 transition-colors">Sim</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // SUPABASE CONFIG
+      const SUPABASE_URL = "https://wtiggukuwfgnmrqaedzw.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0aWdndWt1d2Znbm1ycWFlZHp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDM3NTQsImV4cCI6MjA5MzIxOTc1NH0.EIuFyGu2iM5EeGv7XqdWIX60_58oqbO01W0JwxPfFVY";
+      const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      // DOM ELEMENTS
+      const loginScreen = document.getElementById('loginScreen');
+      const dashboard = document.getElementById('dashboard');
+      const loginForm = document.getElementById('loginForm');
+      const pinCodeInput = document.getElementById('pinCode');
+      const loginError = document.getElementById('loginError');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const filterStatus = document.getElementById('filterStatus');
+
+      let allAppointments = [];
+
+      // SIMPLE AUTH (Client Side Only for Prototype)
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const pin = pinCodeInput.value;
+        if(pin === '1234') {
+          sessionStorage.setItem('adminAuth', 'true');
+          showDashboard();
+        } else {
+          loginError.classList.remove('hidden');
+          pinCodeInput.value = '';
+        }
+      });
+
+      logoutBtn.addEventListener('click', () => {
+        sessionStorage.removeItem('adminAuth');
+        window.location.reload();
+      });
+
+      // CHECK AUTH ON LOAD
+      if (sessionStorage.getItem('adminAuth') === 'true') {
+        showDashboard();
+      }
+
+      function showDashboard() {
+        loginScreen.style.opacity = '0';
+        setTimeout(() => {
+          loginScreen.classList.add('hidden');
+          dashboard.classList.remove('hidden');
+          loadAppointments();
+        }, 500);
+      }
+
+      filterStatus.addEventListener('change', () => {
+        renderTable(allAppointments);
+      });
+
+      async function loadAppointments() {
+        const adminTableBody = document.getElementById('adminTableBody');
+        adminTableBody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-12 text-center text-slate-500">
+              <div class="animate-spin inline-block w-6 h-6 border-[3px] border-current border-t-transparent rounded-full text-blue-500"></div>
+              <p class="mt-2 text-sm">Carregando dados...</p>
+            </td>
+          </tr>
+        `;
+
+        const { data, error } = await dbClient
+          .from("appointments")
+          .select("*")
+          .order("appointment_date", { ascending: true })
+          .order("appointment_time", { ascending: true });
+
+        if (error) {
+          console.error(error);
+          adminTableBody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-red-400">Erro ao carregar dados do Supabase.</td></tr>`;
+          return;
+        }
+
+        allAppointments = data || [];
+        updateStats(allAppointments);
+        renderTable(allAppointments);
+      }
+
+      function updateStats(data) {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const todayCount = data.filter(a => a.appointment_date === today && a.status === 'scheduled').length;
+        const totalCount = data.filter(a => a.status === 'scheduled' && a.appointment_date >= today).length;
+        const cancelledCount = data.filter(a => a.status === 'cancelled').length;
+
+        document.getElementById('statToday').innerText = todayCount;
+        document.getElementById('statTotal').innerText = totalCount;
+        document.getElementById('statCancelled').innerText = cancelledCount;
+      }
+
+      function renderTable(data) {
+        const adminTableBody = document.getElementById('adminTableBody');
+        const filter = filterStatus.value;
+        
+        let filteredData = data;
+        if (filter !== 'all') {
+          filteredData = data.filter(a => a.status === filter);
+        }
+
+        if (filteredData.length === 0) {
+          adminTableBody.innerHTML = `<tr><td colspan="5" class="py-12 text-center text-slate-500 italic">Nenhum agendamento encontrado para este filtro.</td></tr>`;
+          return;
+        }
+
+        adminTableBody.innerHTML = filteredData.map(app => {
+          const isCancelled = app.status === 'cancelled';
+          const isPast = new Date(app.appointment_date + 'T' + app.appointment_time) < new Date() && !isCancelled;
+          
+          let statusBadge = '';
+          let actionBtn = '';
+
+          if (isCancelled) {
+            statusBadge = '<span class="px-2.5 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded-md text-[10px] uppercase font-bold tracking-wider">Cancelado</span>';
+            actionBtn = '<span class="text-xs text-slate-600">-</span>';
+          } else if (isPast) {
+             statusBadge = '<span class="px-2.5 py-1 bg-slate-500/10 border border-slate-500/20 text-slate-400 rounded-md text-[10px] uppercase font-bold tracking-wider">Passado</span>';
+             actionBtn = '<span class="text-xs text-slate-600">-</span>';
+          } else {
+            statusBadge = '<span class="px-2.5 py-1 bg-green-500/10 border border-green-500/20 text-green-400 rounded-md text-[10px] uppercase font-bold tracking-wider">Confirmado</span>';
+            actionBtn = `<button onclick="cancelAppointment('${app.id}')" class="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg text-xs font-semibold transition-colors shadow-sm">Cancelar</button>`;
+          }
+
+          // Format Date
+          const dateParts = app.appointment_date.split('-');
+          const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+          const time = app.appointment_time.slice(0, 5);
+
+          return `
+            <tr class="hover:bg-white/[0.03] transition-colors ${isCancelled ? 'opacity-40' : ''} group">
+              <td class="py-4 px-6">
+                <span class="block font-medium text-slate-200">${formattedDate}</span>
+                <span class="text-xs text-slate-400 font-mono mt-0.5 block">${time}</span>
+              </td>
+              <td class="py-4 px-6">
+                <span class="font-medium text-blue-100">${app.client_name}</span>
+                <span class="block text-xs text-slate-400 mt-0.5">${app.client_phone}</span>
+              </td>
+              <td class="py-4 px-6 text-slate-300 text-sm font-medium">${app.service_type}</td>
+              <td class="py-4 px-6">${statusBadge}</td>
+              <td class="py-4 px-6 text-right">${actionBtn}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // MODAL LOGIC
+      const customModal = document.getElementById('customModal');
+      const customModalContent = document.getElementById('customModalContent');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalMessage = document.getElementById('modalMessage');
+      const modalCancelBtn = document.getElementById('modalCancelBtn');
+      const modalConfirmBtn = document.getElementById('modalConfirmBtn');
+
+      function showModal({ title, message, showCancel = false, onConfirm }) {
+        modalTitle.textContent = title;
+        modalMessage.textContent = message;
+        
+        if (showCancel) {
+          modalCancelBtn.classList.remove('hidden');
+        } else {
+          modalCancelBtn.classList.add('hidden');
+        }
+
+        customModal.classList.remove('hidden');
+        // Small delay to trigger CSS transitions
+        setTimeout(() => {
+          customModal.classList.remove('opacity-0');
+          customModalContent.classList.remove('scale-95');
+          customModalContent.classList.add('scale-100');
+        }, 10);
+
+        // Reset previous listeners
+        const newConfirm = modalConfirmBtn.cloneNode(true);
+        const newCancel = modalCancelBtn.cloneNode(true);
+        modalConfirmBtn.parentNode.replaceChild(newConfirm, modalConfirmBtn);
+        modalCancelBtn.parentNode.replaceChild(newCancel, modalCancelBtn);
+
+        const close = () => {
+          customModal.classList.add('opacity-0');
+          customModalContent.classList.remove('scale-100');
+          customModalContent.classList.add('scale-95');
+          setTimeout(() => customModal.classList.add('hidden'), 200);
+        };
+
+        newCancel.addEventListener('click', close);
+        newConfirm.addEventListener('click', async () => {
+          close();
+          if (onConfirm) await onConfirm();
+        });
+      }
+
+      window.cancelAppointment = function(id) {
+        showModal({
+          title: "Cancelar Agendamento",
+          message: "Esta ação irá cancelar o agendamento de forma permanente. Confirmar?",
+          showCancel: true,
+          onConfirm: async () => {
+            const { error } = await dbClient
+              .from("appointments")
+              .update({ status: "cancelled" })
+              .eq("id", id);
+
+            if (error) {
+              showModal({ title: "Erro", message: "Erro ao cancelar o agendamento.", showCancel: false });
+              console.error(error);
+            } else {
+              loadAppointments();
+            }
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
